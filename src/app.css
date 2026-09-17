@@ -1,0 +1,2129 @@
+/* ===== 主界面样式（Apple 风：极光 + Bento + 玻璃卡片）===== */
+
+.app-shell {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* —— 主页面背景：由 html[data-wallpaper] 控制 —— */
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 壁纸：aurora（极光渐变，默认；旧 anime 配置也映射到此处） */
+.aurora {
+  background-image: radial-gradient(circle at 20% 15%, var(--orb-1), transparent 50%),
+    radial-gradient(circle at 85% 25%, var(--orb-2), transparent 45%),
+    radial-gradient(circle at 50% 90%, var(--orb-3), transparent 55%);
+  background-color: var(--bg);
+}
+
+html[data-wallpaper='plain'] .aurora {
+  background-image: none;
+  background-color: var(--bg);
+}
+
+/* 自定义壁纸：背景图由前端 --custom-wallpaper-url 变量提供（convertFileSrc 本地文件） */
+html[data-wallpaper='custom'] .aurora {
+  background-image: var(--custom-wallpaper-url, none);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-color: var(--bg);
+}
+
+/* 旧极光光球不再使用（背景已换为图片/渐变） */
+.aurora-orb {
+  display: none;
+}
+
+/* 深色模式：自定义图片壁纸加一层深色遮罩保证可读（极光渐变/纯色本身足够深） */
+:root[data-theme='dark'] .aurora {
+  background-color: var(--bg);
+}
+
+:root[data-theme='dark'] html[data-wallpaper='custom'] .aurora::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+/* —— 主界面元素毛玻璃：概览卡 / 操作按钮 / 搜索框 / 站点卡片 / 菜单按钮 ——
+   Glassmorphism 配方：blur 14-18px + 半透明底（亮 30-40%）+ 1px 半透明白描边高光 */
+.stat-card,
+.site-card,
+.search-input,
+.action-row .btn,
+.menu-select-btn,
+.plan-stack-bar {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* 亮色主题：毛玻璃底色（降低透明度让背景图透出）+ 细描边高光 */
+:root[data-theme='light'] .stat-card {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+:root[data-theme='light'] .site-card {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+:root[data-theme='light'] .search-input {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+:root[data-theme='light'] .action-row .btn {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 暗色主题：深色半透明底 + 微弱白描边 */
+:root[data-theme='dark'] .stat-card,
+:root[data-theme='dark'] .site-card {
+  background: rgba(28, 29, 36, 0.45);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme='dark'] .search-input,
+:root[data-theme='dark'] .action-row .btn {
+  background: rgba(28, 29, 36, 0.4);
+}
+
+/* —— 内容容器：上方固定，卡片区独立滚动 —— */
+/* 内容区限定窄宽并居中：窗口拉宽时卡片不随动拉伸，宽出的部分露出背景图 */
+.content {
+  position: relative;
+  z-index: 1;
+  max-width: 460px;
+  margin: 0 auto;
+  height: 100%;
+  padding: 18px 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* 卡片滚动容器（标题/概览/工具栏固定在上方） */
+.cards-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -20px;
+  padding: 0 20px;
+}
+
+/* Android：禁止横向滚动，内容始终适配视口宽度 */
+/* 沉浸式（edge-to-edge）下内容会延伸到状态栏/手势导航栏下面。
+   注意：Android WebView 对普通状态栏/导航栏的 env(safe-area-inset-*) 恒返回 0
+   （Chromium 只对 display cutout 报值），所以用 max() 兜底标准系统栏高度
+   （状态栏/手势条 = 24dp = 24css px；刘海屏时 env 取更大值） */
+[data-platform='android'] .content {
+  overflow-x: hidden;
+  padding-top: calc(18px + max(env(safe-area-inset-top, 0px), 24px));
+  padding-bottom: calc(8px + max(env(safe-area-inset-bottom, 0px), 24px));
+  padding-left: calc(20px + env(safe-area-inset-left, 0px));
+  padding-right: calc(20px + env(safe-area-inset-right, 0px));
+}
+
+/* —— Big Type 标题区 —— */
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.app-title {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  font-size: clamp(17px, 5.2vw, 22px);
+  font-weight: 700;
+  letter-spacing: 2px; /* 标题字符间距，更醒目 */
+}
+
+.title-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 标题栏右侧区：状态 + 设置按钮（设置贴最右） */
+.title-right {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex: 1; /* 占满剩余宽度，把设置按钮推到最右 */
+}
+
+/* Android：右侧内容可能过宽时允许换行并保持右对齐 */
+[data-platform='android'] .title-right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* 标题栏设置按钮（⚙️，打开设置对话框：主题/自动刷新）—— 朴素毛玻璃（液态玻璃配方已于 2026-08 全部移除） */
+.settings-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--chip-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  line-height: 1.5;
+  min-height: 36px; /* 触控命中区加高 */
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.settings-btn:active {
+  transform: scale(0.96);
+}
+
+/* 设置按钮底色与操作行按钮一致（浅色白 30% / 深色黑 40% 毛玻璃底） */
+:root[data-theme='light'] .settings-btn {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+:root[data-theme='dark'] .settings-btn {
+  background: rgba(28, 29, 36, 0.4);
+}
+
+/* hover 需带主题前缀压过上面的底色覆盖（否则 hover 背景不生效） */
+:root[data-theme='light'] .settings-btn:hover,
+:root[data-theme='dark'] .settings-btn:hover {
+  background: var(--chip-bg-hover);
+}
+
+.title-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  /* 浅色毛玻璃底：背景图花时保证右上角文字清晰 */
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  padding: 5px 10px;
+}
+
+:root[data-theme='dark'] .title-status {
+  background: rgba(28, 29, 36, 0.5);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ✅ 监控运行中 + 📌 置顶按钮（同一行，右对齐） */
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity {
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  font-weight: 500;
+}
+
+.activity.ok {
+  color: var(--success);
+}
+
+.activity.err {
+  color: var(--danger);
+}
+
+/* 未运行（无站点）—— 灰色 */
+.activity.warn {
+  color: var(--text-tertiary);
+}
+
+.summary {
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  color: var(--text-tertiary);
+}
+
+/* 异常数量 > 0 时红色加粗 */
+.summary .fail-count {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* —— 自制下拉菜单 —— */
+.menu-select {
+  position: relative;
+  display: inline-block;
+}
+
+.menu-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--chip-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 4px 12px;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.menu-select-btn:hover:not(:disabled) {
+  background: var(--chip-bg-hover);
+}
+
+.menu-select-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.menu-select-arrow {
+  font-size: clamp(9px, 2.43vw, 10.5px);
+  color: var(--text-tertiary);
+}
+
+.menu-select-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 100%;
+  max-width: 320px;
+  background: var(--dialog-bg);
+  border: 1px solid var(--dialog-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 5px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-select-pop.align-left {
+  right: auto;
+  left: 0;
+}
+
+.menu-select-item {
+  text-align: left;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.menu-select-item:hover {
+  background: var(--chip-bg-hover);
+}
+
+.menu-select-item.selected {
+  background: var(--chip-bg-active);
+  color: var(--chip-text-active);
+  font-weight: 500;
+}
+
+/* —— Bento 概览卡（标签与数据横向平行，节省高度）—— */
+.bento-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.stat-card {
+  background: var(--overview-card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.stat-cap {
+  font-size: clamp(10px, 3.16vw, 13px);
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.stat-value {
+  font-size: clamp(14px, 4.37vw, 18px);
+  font-weight: 700;
+  text-align: right;
+}
+
+.stat-value.overview {
+  font-size: clamp(11px, 3.4vw, 14px); /* 与站点名称一致 */
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* —— 概览卡：可用总额 + 剩余包时 + 剩余次数（三列同卡）—— */
+.overview-card {
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.overview-card .overview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.overview-card .overview-item .stat-value {
+  text-align: center;
+}
+
+.overview-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 10px;
+  background: var(--card-border);
+}
+
+@media (max-width: 340px) {
+  .overview-card {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .overview-divider {
+    display: none;
+  }
+
+  .overview-card .overview-item {
+    flex: 1 1 30%;
+  }
+}
+
+/* —— 工具栏 —— */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* —— 操作行：两行两列 —— 第一行 导出/导入+添加站点，第二行 方案筛选+全部刷新 */
+.action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.action-row .export-btn {
+  background: var(--overview-card-bg);
+  border: 1px solid var(--card-border);
+  font-size: clamp(10px, 3.16vw, 13px);
+}
+
+/* 与设置按钮一致：仅背景变亮，无蓝描边/位移。
+   必须带主题前缀压过 :root[data-theme] .action-row .btn 的底色覆盖（否则 hover 被盖住不生效） */
+:root[data-theme='light'] .action-row .export-btn:hover,
+:root[data-theme='dark'] .action-row .export-btn:hover {
+  background: var(--chip-bg-hover);
+}
+
+/* 方案筛选激活态（开启筛选时蓝底白字）hover 保持蓝底加深，不被普通 hover 覆盖 */
+:root[data-theme='light'] .action-row .export-btn.active:hover,
+:root[data-theme='dark'] .action-row .export-btn.active:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* 方案筛选按钮激活态：已启用筛选时蓝色底色 + 白字 */
+.action-row .export-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.action-row .export-btn.active:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* 两行排列顺序：导出(1) 添加(2) / 方案筛选(3) 全部刷新(4) */
+.action-row .export-btn {
+  order: 1;
+}
+
+.action-row .btn:nth-child(3) {
+  order: 4; /* 全部刷新 → 第二行右 */
+}
+
+.action-row .btn:nth-child(2) {
+  order: 3; /* 方案筛选 → 第二行左 */
+}
+
+.action-row .btn:nth-child(4) {
+  order: 2; /* 添加站点 → 第一行右 */
+}
+
+/* —— Toast 轻量提示（fixed 底部居中，自动消失）—— */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: rgba(30, 30, 34, 0.92);
+  color: #ffffff;
+  padding: 9px 18px;
+  border-radius: 12px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  line-height: 1.5;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  animation: toast-in 0.18s ease-out;
+  max-width: min(320px, calc(100vw - 40px));
+  text-align: center;
+  pointer-events: none;
+}
+
+:root[data-theme='dark'] .toast {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111111;
+}
+
+.toast-err {
+  background: rgba(180, 40, 50, 0.92) !important;
+  color: #ffffff !important;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* —— 悬浮提示（JS 动态创建，fixed 定位，不被滚动容器裁剪）
+   按钮上的 .tip[data-tip] 类名是 JS 选择器钩子（tooltip.ts），无 CSS 规则 */
+
+.float-tip {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(30, 30, 34, 0.95);
+  color: #ffffff;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: clamp(10px, 2.67vw, 12px);
+  line-height: 1.5;
+  white-space: pre-line; /* 尊重 data-tip 里的换行符 */
+  max-width: 320px;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  display: none;
+}
+
+:root[data-theme='dark'] .float-tip {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111111;
+}
+
+/* Android：搜索框独占一行，按钮整行换行并靠右对齐 */
+[data-platform='android'] .toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+[data-platform='android'] .search-wrap,
+[data-platform='android'] .search-input {
+  flex: 1 1 100%;
+}
+
+/* —— 搜索框：无边框 + 旧圆角 12px + hover/focus 内部明显变亮 —— */
+.search-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.search-icon {
+  position: absolute;
+  z-index: 1;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.search-icon-left {
+  left: 12px;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 12px; /* 旧圆角 */
+  padding: 8px 14px 8px 32px; /* 左侧留出放大镜空间 */
+  font-size: clamp(10px, 3.16vw, 13px);
+  outline: none;
+  transition: background 0.15s;
+}
+
+/* hover/focus：内部背景明显提亮。
+   必须带主题前缀压过 :root[data-theme] .search-input 的底色覆盖（否则 hover 被盖住不生效） */
+:root[data-theme='light'] .search-input:hover,
+:root[data-theme='light'] .search-input:focus,
+:root[data-theme='dark'] .search-input:hover,
+:root[data-theme='dark'] .search-input:focus {
+  background: var(--input-focus-bg);
+}
+
+/* —— 按钮 —— */
+.btn {
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.15s, transform 0.05s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 旋转动画（刷新 loading 指示器） */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: background 0.15s, transform 0.05s, box-shadow 0.3s;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn.primary:active {
+  background: var(--accent-pressed);
+}
+
+.btn.secondary {
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+
+.btn.secondary:hover:not(:disabled) {
+  background: var(--chip-bg-hover); /* 与设置按钮一致：仅背景变亮，无上移 */
+}
+
+.btn.danger-solid {
+  background: var(--danger);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn.danger-solid:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* —— 站点卡片网格 —— */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  align-content: start;
+  padding-bottom: 12px;
+}
+
+/* Android：网格列可收缩，窄屏不溢出 */
+[data-platform='android'] .card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.empty-hint {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 60px 0;
+  font-size: clamp(11px, 3.4vw, 14px);
+  line-height: 1.8;
+}
+
+/* —— 站点卡片（紧凑布局）—— */
+.site-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  box-shadow: var(--card-shadow);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  opacity: 0;
+  transform: translateY(10px);
+  /* 多方案收纳条换到第二行 */
+  flex-wrap: wrap;
+  /* 关键：grid 子项允许收缩到列宽（默认 min-width:auto 会按内容最宽撑破列），
+     否则超长无断点报错文本（如自动识别失败的 URL 列表）会把整列撑宽、右侧按钮挤出视口 */
+  min-width: 0;
+  /* 拖拽排序：整卡可拖（含文字/内容区）。禁用文本选择与浏览器手势，
+     否则 Android 长按会触发文本选择/滚动，dnd-kit 收不到完整指针序列而无法拖动 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 左侧内容区 */
+.card-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative; /* Android 可点击角标定位基准 */
+}
+
+.site-card.entered {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+/* 站点卡悬浮：压过 :root[data-theme] .site-card 的底色覆盖（否则 hover 背景不生效） */
+:root[data-theme='light'] .site-card:hover,
+:root[data-theme='dark'] .site-card:hover {
+  background: var(--card-bg-hover);
+  border-color: var(--card-border-hover);
+}
+
+.card-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.provider-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.mark-violet {
+  background: var(--mark-violet-bg);
+  color: var(--mark-violet-fg);
+}
+
+.mark-coral {
+  background: var(--mark-coral-bg);
+  color: var(--mark-coral-fg);
+}
+
+.mark-cyan {
+  background: var(--mark-cyan-bg);
+  color: var(--mark-cyan-fg);
+}
+
+.mark-blue {
+  background: var(--mark-blue-bg);
+  color: var(--mark-blue-fg);
+}
+
+.mark-yellow {
+  background: var(--mark-yellow-bg);
+  color: var(--mark-yellow-fg);
+}
+
+/* 官方彩色图标：中性纯色底（非渐变）+ 细边框，方块尺寸与其他文字块一致 */
+.mark-neutral {
+  background: var(--mark-neutral-bg);
+  border: 1px solid var(--card-border-hover);
+}
+
+/* 站点官网 favicon（抓取显示在色块中） */
+.provider-favicon {
+  border-radius: 4px;
+  object-fit: contain;
+  display: block;
+}
+
+.card-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: clamp(11px, 3.4vw, 14px);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* —— 右侧操作按钮块（垂直居中）—— */
+.card-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* 两行按钮之间分开些 */
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.actions-row {
+  display: flex;
+  gap: 8px; /* 相邻触控目标间距 ≥ 8px（触控规范） */
+}
+
+/* 按钮更高；上移/下移图标更大（命中区尽量 ≥ 40px 高） */
+.card-side-actions .card-btn {
+  justify-content: center;
+  padding: 10px 0;
+  font-size: clamp(10px, 2.91vw, 12px);
+  min-height: 40px;
+  width: 64px;
+}
+
+/* 打开网站功能移入：左侧方块 + 站点名称（均可点击打开网站） */
+.provider-mark.clickable {
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.15s;
+}
+
+.provider-mark.clickable:hover {
+  filter: brightness(1.12);
+  transform: scale(1.05);
+}
+
+.card-name.openable {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.card-name.openable:hover {
+  color: var(--text-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* DeepSeek 官方站峰谷时段徽标：谷=绿 / 峰=红 */
+.ds-peak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: clamp(10px, 3.16vw, 12px);
+  font-weight: 700;
+  line-height: 1;
+  cursor: default;
+}
+
+.ds-peak-valley {
+  background: rgba(34, 197, 94, 0.16);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.ds-peak-peak {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+:root[data-theme='dark'] .ds-peak-valley {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+:root[data-theme='dark'] .ds-peak-peak {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* —— 余额 + 状态 —— */
+.card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.card-btn {
+  background: var(--overview-card-bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 3px 10px;
+  font-size: clamp(10px, 2.91vw, 12px); /* 正文下限 10px，避免过小 */
+  line-height: 1.5;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.05s;
+  /* 图标 + 文字垂直水平居中（修复：旧样无 flex，图标/文字贴边不对齐） */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.card-btn:hover:not(:disabled) {
+  background: var(--chip-bg-hover); /* 与设置按钮一致：仅背景变亮，文字不变、无上移 */
+}
+
+.card-btn.icon {
+  padding: 3px 8px;
+}
+
+/* 语义悬浮色（与删除按钮同款：仅边框/文字变语义色，无背景、无位移）—— 展示蓝 / 刷新绿 / 编辑黄 / 删除红 */
+.card-btn.show:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.card-btn.refresh:hover:not(:disabled) {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.card-btn.edit:hover:not(:disabled) {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+/* 浅色主题 --warning(#b25000) 偏暗、与灰色文字接近像没效果 → 编辑按钮 hover 单独用亮黄 */
+:root[data-theme='light'] .card-btn.edit:hover:not(:disabled) {
+  border-color: #d97706;
+  color: #d97706;
+}
+
+.card-btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.card-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* —— 余额 + 状态 —— */
+.card-balance {
+  font-size: clamp(18px, 5.83vw, 24px);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
+}
+
+.card-status {
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 状态 emoji 右侧的文字（如「刷新中」）—— 警示色，与黄色三角一致 */
+.card-status .status-text {
+  margin-left: 2px;
+  color: var(--warning);
+  font-size: clamp(9px, 2.5vw, 10.5px);
+}
+
+.status-idle {
+  color: var(--text-tertiary);
+}
+
+.status-ok {
+  color: var(--success);
+}
+
+.status-err {
+  color: var(--danger);
+}
+
+.status-busy {
+  color: var(--warning);
+}
+
+/* —— 详情多行（OpenCode Go 等按行展示多个窗口；pre-line 保留 \n，长词兜底换行；max-width 100% 防顶位移）—— */
+.card-detail {
+  font-size: clamp(10px, 2.67vw, 12px);
+  color: var(--text-tertiary);
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* OpenCode Go 套餐徽标（站点名称右侧，仿 DeepSeek 峰谷小标；Go 品牌色青蓝） */
+.go-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: clamp(10px, 3.16vw, 12px);
+  font-weight: 700;
+  line-height: 1;
+  cursor: default;
+  background: rgba(0, 173, 216, 0.14);
+  color: #0091b8;
+  border: 1px solid rgba(0, 173, 216, 0.4);
+}
+
+:root[data-theme='dark'] .go-badge {
+  background: rgba(0, 173, 216, 0.2);
+  color: #35c2e8;
+  border-color: rgba(0, 173, 216, 0.45);
+}
+
+/* —— 对话框 —— */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  background: var(--dialog-bg);
+  border: 1px solid var(--dialog-border);
+  border-radius: 20px;
+  padding: 22px 24px 18px;
+  width: min(460px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-title {
+  margin: 0 0 8px;
+  font-size: clamp(13px, 4.13vw, 17px);
+  font-weight: 700;
+}
+
+/* —— 设置页置顶：反馈 Q 群（文本 + 一键复制按钮） —— */
+.feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+
+.feedback-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: clamp(11px, 3.2vw, 13px);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.feedback-qq {
+  color: var(--accent);
+  font-size: 1.05em;
+  letter-spacing: 0.5px;
+}
+
+.feedback-copy-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: clamp(11px, 3.2vw, 12px);
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 安卓沉浸式：对话框最大高度扣除系统栏安全区（env 对普通系统栏恒为 0，用 max 兜底标准高度），
+   避免居中后顶进状态栏/导航栏 */
+[data-platform='android'] .dialog {
+  max-height: calc(100vh - 60px - max(env(safe-area-inset-top, 0px), 24px) - max(env(safe-area-inset-bottom, 0px), 24px));
+}
+
+/* 标题行：大标题 + 右侧小字提示（如添加站点页的自动识别建议） */
+.dialog-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dialog-title-row .dialog-title {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.dialog-title-tip {
+  font-size: clamp(9px, 2.55vw, 10.5px);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  min-width: 0;
+}
+
+.field-label {
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.req {
+  color: var(--danger);
+}
+
+.field-input {
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  outline: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.field-input:hover {
+  background: var(--input-bg-hover);
+}
+
+.field-input:focus {
+  background: var(--input-focus-bg);
+  border-color: var(--accent);
+}
+
+.field-input:disabled {
+  opacity: 0.6;
+}
+
+/* 字段级校验错误：红边框 + 字段下方红字提示（inline，靠近字段本身） */
+.field-input.field-error {
+  border-color: var(--danger);
+  background: var(--input-focus-bg);
+}
+
+.field-error-text {
+  margin: 2px 0 0;
+  font-size: clamp(10px, 2.67vw, 12px);
+  color: var(--danger);
+  line-height: 1.5;
+}
+
+.field-hint {
+  margin: 2px 0 0;
+  font-size: clamp(10px, 2.67vw, 12px);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.field-error {
+  margin: 0;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  color: var(--danger);
+}
+
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.check-label input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+.test-result {
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  line-height: 1.6;
+}
+
+.test-result.ok {
+  background: rgba(29, 127, 69, 0.1);
+  color: var(--success);
+}
+
+.test-result.err {
+  background: rgba(215, 0, 21, 0.08);
+  color: var(--danger);
+}
+
+/* —— 候选校准列表 —— */
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px dashed var(--card-border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.candidate-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.candidate-item:hover {
+  background: var(--input-bg-hover);
+  border-color: var(--accent);
+}
+
+.candidate-item.selected {
+  background: var(--chip-bg-active);
+  border-color: var(--accent);
+  color: var(--chip-text-active);
+}
+
+.candidate-value {
+  font-size: clamp(11px, 3.4vw, 14px);
+  white-space: nowrap;
+}
+
+.candidate-ctx {
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.candidate-clear {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--text-link);
+  border: none;
+  font-size: clamp(10px, 2.67vw, 12px);
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.dialog-actions .spacer {
+  flex: 1;
+}
+
+/* —— 添加/编辑站点：对话框滚动时标题吸顶、底部操作行吸底（测试连接/取消/添加全部随动）——
+   标题行保持普通流内布局（顶部不遮挡下方元素，间距自然）；
+   吸顶时用 box-shadow 双向延伸盖住滚动内容：
+   上 -22px 盖住 dialog 顶部 padding 区（滚动内容会滚入该区）、下 16px 盖住 flex gap 间隙；
+   box-shadow 不参与布局与命中，不影响点击。
+   操作行背景透明：滚动内容可透过空白区可见，且空白区不拦截点击（pointer-events 穿透），
+   不占用负 margin 抵消 dialog 底部 padding，滚到底时操作行停在内容末尾、下方保留自然留白 */
+.site-sticky-title {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  /* 毛玻璃：半透明底 + backdrop blur，滚动内容从标题后经过时被模糊，
+     与底部的按钮行风格一致；box-shadow 双向延伸用同色半透明保持无缝 */
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 -22px 0 0 rgba(255, 255, 255, 0.72), /* 盖住 dialog 顶部 padding 区（滚动内容会滚入） */
+    0 16px 0 0 rgba(255, 255, 255, 0.72); /* 盖住 margin-bottom 8 + flex gap 8 的间隙 */
+}
+
+:root[data-theme='dark'] .site-sticky-title {
+  background: rgba(28, 29, 36, 0.72);
+  box-shadow:
+    0 -22px 0 0 rgba(28, 29, 36, 0.72),
+    0 16px 0 0 rgba(28, 29, 36, 0.72);
+}
+
+/* 下滑（scrollTop > 0）时标题行底部显示分割线，直观提示内容已滚动 */
+.site-sticky-title.scrolled {
+  border-bottom: 1px solid var(--dialog-border);
+}
+
+.site-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  pointer-events: none; /* 空白/透明区不挡后面的元素与点击 */
+}
+
+/* 毛玻璃只加在按钮上：按钮背后的滚动内容被模糊，按钮与内容不重叠；
+   行中间（spacer）保持透明，不产生非按钮区域的底色 */
+.site-sticky-actions > button {
+  pointer-events: auto; /* 按钮本身可点 */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  background: var(--chip-bg);
+}
+
+/* —— 高级设置折叠区 —— */
+/* 设置页行间「立体」分割线（2026-09/16 用户要求）：
+   一条实线（border-top）+ 正下方 1px 更淡的线（box-shadow）= 凹刻/浮雕观感（"立体"）。
+   ⚠️ 两色都由主题变量给（--divider-line / --divider-highlight），因为两个主题的**做法不同**：
+   浅色弹窗底色是纯白 → 下方那条只能用"更淡的暗色"（白线在白底上不可见，实测过）；
+   深色弹窗底色是 #1c1d24 → 下方那条用"淡亮线"才是经典的浮雕。
+   布局高度只占 1px（height:0 + border），视觉 2px。 */
+.settings-divider {
+  height: 0;
+  margin: 10px 0;
+  border-top: 1px solid var(--divider-line);
+  box-shadow: 0 1px 0 var(--divider-highlight);
+}
+
+/* 设置页的「设置标题」字体统一成与「高级设置」同款（2026-09/16 用户要求：
+   「设置中的每个设置的标题如：主题、背景壁纸，字体统一为高级设置那种」）。
+   字号/颜色本来就一致（都是 clamp(9.5px,2.91vw,12px) + --text-secondary），差的只有字重
+   → 统一 600（与 .advanced-toggle 相同，WebView 会取 Bold 字面）。
+   ⚠️ 用 .settings-dialog 作用域，**不要直接改 .field-label** —— 它在「添加站点」等弹窗也在用。 */
+.settings-dialog .field-label,
+.settings-dialog .switch-label {
+  font-weight: 600;
+}
+
+.advanced-section {
+  /* 分割线由上方 .settings-divider 提供（原先这里自带 border-top，会和立体线叠成三条） */
+  margin-top: 0;
+  padding-top: 8px;
+}
+
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  font-weight: 600;
+  padding: 4px 0;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.advanced-toggle:hover {
+  color: var(--text-link);
+}
+
+.advanced-arrow {
+  font-size: clamp(9px, 2.43vw, 10.5px);
+  color: var(--text-tertiary);
+}
+
+.advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--card-border);
+}
+
+.confirm-dialog {
+  width: min(380px, calc(100vw - 40px));
+}
+
+/* 设置页：背景壁纸选择下拉 + 「选择图片」替换按钮（自定义壁纸时显示）同一行 */
+.wallpaper-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wallpaper-row .wp-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.wp-replace-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+}
+
+/* ═══ 设置页：主题（三按钮横向）与背景壁纸同一行（2026-09/15 用户要求）═══
+   左列主题按钮组定宽、右列壁纸下拉吃掉剩余宽度；窄窗口（安卓）时两列各自缩，
+   按钮文字用 nowrap + 小字号，避免「跟随系统」被折行。 */
+.settings-row {
+  display: flex;
+  align-items: flex-end; /* 标签与控件按底部对齐：两列的 field-label 高度一致 */
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.theme-col {
+  flex: 0 0 auto;
+}
+
+.wallpaper-col {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.theme-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-opt {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--card-border);
+  background: var(--chip-bg, rgba(255, 255, 255, 0.55));
+  color: var(--text-secondary);
+  font-size: clamp(9.5px, 2.8vw, 11.5px);
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.theme-opt:hover {
+  color: var(--text-primary);
+  background: var(--input-bg-hover);
+}
+
+/* 选中态：用主题强调色描边 + 深字，与其它选中态（MenuSelect 当前项）观感一致 */
+.theme-opt.active {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  background: var(--input-focus-bg);
+}
+
+/* ═══ 设置页：左右滑动开关（2026-09/15；用于「自动打开鲸鱼娘窗口」）═══
+   用户要求用滑动开关而非勾选框，且不要说明文本。
+   轨道定宽 → 拇指 `left` 过渡；`.on` 时拇指滑到右侧并把轨道染成强调色。
+   轨道/拇指尺寸固定 px（不随视口缩放：这是设置页，非挂件画布，无 transform 缩放问题）。 */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.switch-label {
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+/* 设置页：启动时自动打开桌宠模式 —— 下拉框三选一（2026-09/16 取代原滑动开关）
+   复用 .switch-row 的「左标签 + 右控件」布局。
+   ⚠️ **不要给根元素加 min-width**（2026-09/16 踩到）：`.menu-select-pop` 是 `right:0` 定位，
+   对齐的是**根元素**右缘而不是按钮右缘 —— 根元素一旦比按钮宽（按钮按内容定宽），
+   展开的面板右缘就会凸出按钮、左缘与按钮齐平，看起来像"左对齐"。
+   三个选项都是 4 个汉字，按钮宽度天然稳定，不需要再定宽。 */
+.auto-widget-select {
+  flex: 0 0 auto;
+}
+
+.switch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 11px;
+  background: var(--chip-bg, rgba(255, 255, 255, 0.55));
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+/* 关闭态：拇指停在左侧；用浅色描边保证在浅色壁纸上也看得见 */
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: left 0.18s ease, background 0.18s;
+}
+
+.switch.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch.on .switch-thumb {
+  left: 21.6px; /* = 轨道 40.8 - 边框 2 - 拇指 16 - 内距 1.2（实测：量测宽度 40、拇指宽 16） */
+  background: #ffffff;
+}
+
+/* 键盘可达：焦点环用强调色，不依赖系统默认 */
+.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* —— 同步弹窗 —— */
+.sync-dialog {
+  width: min(480px, calc(100vw - 40px));
+}
+
+.sync-section {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sync-section-title {
+  font-size: clamp(10px, 3.16vw, 13px);
+  font-weight: 600;
+}
+
+.sync-actions {
+  display: flex;
+  gap: 8px;
+  /* 默认右对齐（2026-09/16 用户要求）：与 .sync-section 的内容右缘对齐 */
+  justify-content: flex-end;
+}
+
+/* 「配置文件」那一行：**导入靠左、导出靠右**（2026-09/16 用户要求）。
+   只给这一行加 .split —— 二维码段的按钮多于两个，用 space-between 会被拉散。 */
+.sync-actions.split {
+  justify-content: space-between;
+}
+
+.sync-pwd-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sync-pwd-row .field-input {
+  flex: 1;
+}
+
+/* 二维码展示区 */
+.qr-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.qr-img {
+  width: 300px;
+  height: 300px;
+  max-width: calc(100vw - 96px);
+  image-rendering: pixelated;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px;
+  border: 1px solid var(--card-border);
+}
+
+.sync-input {
+  resize: vertical;
+  font-family: 'Maple Mono NF CN', monospace;
+  font-size: clamp(9.5px, 2.91vw, 12px);
+  line-height: 1.5;
+}
+
+/* —— 方案筛选弹窗 —— */
+/* 头部批量操作按钮行（全选 / 清空） */
+.plan-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.plan-toolbar .btn {
+  padding: 4px 12px;
+  font-size: clamp(10px, 2.67vw, 12px);
+}
+
+/* 各方案计数（右对齐） */
+.plan-count {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: clamp(10px, 2.67vw, 12px);
+  white-space: nowrap;
+}
+
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.plan-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.plan-item:hover {
+  background: var(--input-bg-hover);
+  border-color: var(--accent);
+}
+
+.plan-item input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+/* —— 编辑站点：计费方式多选勾选组 —— */
+.plan-check-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.plan-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.plan-check-item:hover {
+  border-color: var(--accent);
+}
+
+.plan-check-item.checked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.plan-check-item input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+/* —— 站点卡片：多方案徽标 / 收纳条 / 次级卡片 —— */
+.plan-badges {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.plan-tag {
+  display: inline-block;
+  font-size: clamp(9px, 2.2vw, 10.5px);
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.plan-tag-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* 次级卡片收纳行（多方案站点卡片底部）
+   —— 桌面（.site-card 为 row+flex-wrap）：flex-basis 100% 强制换到第二行占满整行
+   —— Android（≤420px 断点 .site-card 为 column+flex-wrap）：flex-basis 100% 会变成
+      主轴(垂直)方向占满，配合 wrap 把收纳条绕排到右侧新列（历史 bug：次级卡片
+      跑到卡片右边显示不全）；Android 覆盖为 auto + width 100% */
+.plan-stack {
+  margin-top: 2px;
+  border-top: 1px dashed var(--card-border);
+  padding-top: 2px;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-basis: 100%;
+  flex-shrink: 0;
+}
+
+[data-platform='android'] .plan-stack {
+  flex-basis: auto;
+  width: 100%;
+}
+
+.plan-stack-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: clamp(10px, 2.67vw, 12px);
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.plan-stack-hint {
+  color: var(--text-tertiary);
+}
+
+.plan-stack-labels {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.plan-subcards {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.plan-subcard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap; /* 次级卡详情行（plan-subcard-detail）换到第二行 */
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 7px 12px;
+  /* 窄屏约束：内容（金额/标签/按钮）可收缩，不把卡片撑破 */
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 次级卡详情行（如 OpenCode Go 三个窗口逐行显示；占满一行、可多行） */
+.plan-subcard-detail {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: clamp(10px, 2.67vw, 12px);
+  color: var(--text-tertiary);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* 「当前展示」方案行：外阴影突出（区分于普通方案；阴影画在元素外，不受 overflow 裁剪） */
+.plan-subcard.is-main {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent-soft),
+    0 3px 12px var(--accent-soft),
+    0 6px 20px rgba(0, 113, 227, 0.12);
+}
+
+.plan-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* 次级卡内金额过长时省略，避免顶开「设为主卡」按钮；数值字号比主卡更小（辅助信息） */
+.plan-subcard .card-balance {
+  font-size: clamp(12px, 3.2vw, 14px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-value.big .card-balance {
+  font-size: clamp(15px, 4.82vw, 20px);
+}
+
+.plan-value .card-balance.err {
+  color: var(--danger);
+}
+
+.plan-muted {
+  color: var(--text-tertiary);
+}
+
+.plan-value-tag {
+  flex-shrink: 0;
+}
+
+.plan-main-badge {
+  margin-left: auto;
+  font-size: clamp(9px, 2.2vw, 10.5px);
+  color: var(--accent);
+}
+
+.plan-set-main {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: clamp(10px, 2.67vw, 12px);
+  cursor: pointer;
+}
+
+.plan-set-main:active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.confirm-message {
+  margin: 0 0 6px;
+  font-size: clamp(10px, 3.16vw, 13px);
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+/* —— 窄窗口（Android/小窗）单列 —— */
+@media (max-width: 720px) {
+  .bento-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat-card.wide {
+    grid-column: 1 / -1;
+  }
+
+  .content {
+    padding: 12px 12px 6px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* —— 极窄屏（仅 Android 小屏手机）：按钮块移到卡片底部，避免左右挤压 —— */
+@media (max-width: 420px) {
+  [data-platform='android'] .site-card {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  [data-platform='android'] .card-side-actions {
+    align-self: stretch;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  [data-platform='android'] .card-side-actions .actions-row {
+    flex: 1;
+    justify-content: space-between;
+  }
+
+  [data-platform='android'] .title-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Android：设置按钮下移——不再绝对定位贴右上角，回到 title-right 流内，
+     与站点数量（summary 状态块）同一行：状态块在左、设置按钮在右 */
+  [data-platform='android'] .settings-btn {
+    min-height: 38px; /* 与状态块高度协调，触控命中区 */
+  }
+
+  [data-platform='android'] .title-left {
+    padding-right: 0; /* 按钮不再占右上角，标题可占满第一行 */
+    min-height: 0;
+  }
+
+  /* column 下 title-right 占满整行，状态块与设置按钮分列左右（同一行） */
+  [data-platform='android'] .title-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  [data-platform='android'] .title-status {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+/* Android：紧凑卡片 —— 隐藏详情行（上移/下移/展示按钮由组件按平台渲染） */
+[data-platform='android'] .card-detail {
+  display: none;
+}
+
+/* Android：卡片单击打开操作弹窗的可点击提示（用户反馈不要文字角标，仅保留指针样式） */
+[data-platform='android'] .site-card.card-clickable {
+  cursor: pointer;
+}
+
+/* Android：站点操作弹窗（单击卡片打开：三个按钮 + 全部计费方案） */
+.actions-dialog {
+  width: min(340px, calc(100vw - 48px));
+}
+
+.site-actions-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+/* 底部操作行（删除/编辑/刷新/关闭合并一行）：等宽分布 */
+.dialog-actions-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dialog-actions-bottom .btn {
+  flex: 1;
+  justify-content: center;
+  padding: 9px 4px;
+  font-size: clamp(10px, 2.9vw, 12.5px);
+}
+
+.site-actions-row .card-btn {
+  flex: 1;
+  justify-content: center;
+  padding: 9px 0;
+  font-size: clamp(10.5px, 3vw, 13px);
+}
+
+.actions-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Android：打开网站按钮右对齐（名称占满左侧） */
+[data-platform='android'] .card-title-box {
+  justify-content: space-between;
+}
+
+[data-platform='android'] .card-name {
+  flex: 1;
+  max-width: none;
+}
+
+/* Android：三个操作按钮等宽、水平平均分布、字号统一
+   （现在按钮在操作弹窗 .site-actions-row 内，此处样式为弹窗按钮与旧布局兜底） */
+[data-platform='android'] .card-side-actions .card-btn {
+  width: auto;
+  flex: 1;
+  justify-content: center;
+  padding: 5px 0;
+  font-size: clamp(9.5px, 2.91vw, 12px) !important;
+  font-weight: 400;
+}
+
+/* Android：余额单行显示（刷新前后不换行，避免卡片变高） */
+[data-platform='android'] .card-balance {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+}
+
+/* —— 超窄屏（≤360px，低 PPI 小屏手机视口更窄）：进一步收紧间距，避免内容溢出 ——
+   注意：Android 的 .content 左右 padding 是 calc(20px + env(...))（特异性更高），
+   720px 断点的 12px 对其不生效，这里用同特异性规则在后覆盖 */
+@media (max-width: 360px) {
+  [data-platform='android'] .content {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .stat-card {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .site-card {
+    padding: 8px 10px;
+  }
+
+  .dialog {
+    padding: 16px 16px 14px;
+  }
+
+  .dialog-actions {
+    flex-wrap: wrap;
+  }
+
+  .menu-select-pop {
+    max-width: min(280px, calc(100vw - 24px));
+  }
+
+  .toolbar {
+    gap: 8px;
+  }
+
+  .action-row {
+    gap: 8px;
+  }
+
+  .card-grid {
+    gap: 8px;
+  }
+
+  .card-body {
+    gap: 8px;
+  }
+
+  .card-side-actions {
+    gap: 8px;
+  }
+
+  .actions-row {
+    gap: 4px;
+  }
+}
+
+/* —— 极限窄屏（≤340px）：Bento 概览改为单列，避免左右挤压 —— */
+@media (max-width: 340px) {
+  .bento-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card.wide {
+    grid-column: auto;
+  }
+}

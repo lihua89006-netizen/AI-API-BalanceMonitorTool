@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window, the whale widget window and the widget's recharge panel window",
+  "windows": ["main", "widget", "widget-menu"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-is-always-on-top"
+  ]
+}

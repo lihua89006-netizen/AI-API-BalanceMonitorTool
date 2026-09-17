@@ -1,0 +1,68 @@
+/* 「设置」面板 —— 独立窗口样式（label=widget-menu，2026-09/16）
+ *
+ * ⚠️ 这些规则原先在 widget.css 里（面板画在**挂件窗口内**）；面板改为**独立窗口**后迁到本文件，
+ * 只由 WidgetMenuApp 引入（挂件窗口不再加载它们）。
+ * html/body 的透明底仍来自 widget.css —— 独立窗口同样需要，否则 WebView2 白底。
+ *
+ * ⚠️ 2026-09/16 换模型后本面板暂时没有设置项：「今日充值金额」的输入框/取消/确定随
+ * 「消费只由下降构成」一起删除，因此这里的 .wmp-input / .wmp-current / .wmp-hint 等
+ * 输入相关样式也已清掉（避免留一堆没人用的死样式）。 */
+
+/* 根容器：**高度必须由内容决定**（前端把它量出来回报给 Rust 当窗口高度），四周留出投影空间。
+   ⚠️ 绝不写 `inset:0` / `height:100%`：那样量到的是窗口高度而非内容高度，
+   会形成「窗口变高 → 内容变高 → 再变高」的自激循环。
+   宽度与 Rust 的 MENU_W 一致（224），减去左右各 10px 内边距 = 面板内容宽 204。 */
+.wm-root {
+  width: 224px;
+  padding: 10px;
+}
+
+/* 面板本体：独立窗口里它铺满窗口（窗口尺寸就是按它的量测结果设的） */
+.widget-menu-panel {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 58, 95, 0.25);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 4px 12px rgba(31, 58, 95, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  user-select: none;
+}
+
+/* 面板标题 */
+.wmp-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #3d5a80;
+  line-height: 1.2;
+}
+
+/* 空状态说明（面板暂无可调项时的占位文案） */
+.wmp-empty {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #6b7a8f;
+}
+
+.wmp-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.wmp-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 58, 95, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+  color: #1f3a5f;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.wmp-btn:hover {
+  background: rgba(255, 255, 255, 1);
+}

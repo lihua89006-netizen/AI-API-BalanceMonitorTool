@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💎 MiniMax 余额查询</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:"Microsoft YaHei",sans-serif;
+    background:linear-gradient(135deg,#0f172a,#1e293b);
+    color:#e2e8f0; min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card {
+    width:380px; max-width:92vw;
+    background:rgba(30,41,59,.85);
+    border:1px solid rgba(148,163,184,.2);
+    border-radius:18px; padding:30px 28px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  h1 { font-size:22px; text-align:center; margin-bottom:4px; }
+  .sub { text-align:center; color:#94a3b8; font-size:13px; margin-bottom:22px; }
+  label { display:block; font-size:13px; color:#94a3b8; margin:12px 0 6px; }
+  input {
+    width:100%; padding:11px 14px; border-radius:10px;
+    border:1px solid rgba(148,163,184,.3); background:rgba(2,6,23,.6);
+    color:#e2e8f0; font-size:14px; outline:none;
+  }
+  input:focus { border-color:#38bdf8; box-shadow:0 0 0 3px rgba(56,189,248,.15); }
+  button {
+    width:100%; margin-top:20px; padding:12px;
+    border:none; border-radius:10px; cursor:pointer;
+    background:linear-gradient(135deg,#0ea5e9,#38bdf8);
+    color:#082f49; font-size:15px; font-weight:bold;
+    transition:opacity .2s;
+  }
+  button:hover { opacity:.85; }
+  button:disabled { opacity:.5; cursor:wait; }
+  #result {
+    margin-top:18px; padding:14px;
+    border-radius:10px; background:rgba(2,6,23,.6);
+    font-family:Consolas,monospace; font-size:14px; line-height:1.9;
+    display:none; white-space:pre;
+  }
+  #result.ok { display:block; border:1px solid rgba(52,211,153,.3); }
+  #result.err { display:block; border:1px solid rgba(248,113,113,.3); }
+  .note { margin-top:16px; text-align:center; color:#64748b; font-size:12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>💎 MiniMax 余额查询</h1>
+    <div class="sub">按量计费 · 输入账号密码查询</div>
+
+    <label>账号（邮箱/手机号）</label>
+    <input type="text" id="username" placeholder="请输入 MiniMax 账号" autocomplete="username">
+
+    <label>密码</label>
+    <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password">
+
+    <button id="btn" onclick="doQuery()">查询余额</button>
+
+    <div id="result"></div>
+    <div class="note">查询通过服务端自动完成，账号信息仅用于本次登录</div>
+  </div>
+
+<script>
+async function doQuery() {
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  const r = document.getElementById('result');
+  const btn = document.getElementById('btn');
+  if (!u || !p) { show('请输入账号和密码', false); return; }
+  btn.disabled = true;
+  btn.textContent = '查询中...';
+  show('正在查询，请稍候...', true);
+  try {
+    const resp = await fetch('/api/balance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      const b = data.balance;
+      show(`✅ 查询成功\n可用 ${b.available}\n现金 ${b.cash}\n赠金 ${b.voucher}\n信用 ${b.credit}`, true);
+    } else {
+      show('❌ ' + (data.message || '查询失败'), false);
+    }
+  } catch (e) {
+    show('❌ 网络错误: ' + e.message, false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '查询余额';
+  }
+}
+function show(txt, ok) {
+  const r = document.getElementById('result');
+  r.className = ok ? 'ok' : 'err';
+  r.textContent = txt;
+}
+</script>
+</body>
+</html>

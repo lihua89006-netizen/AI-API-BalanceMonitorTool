@@ -1,0 +1,36 @@
+[package]
+name = "api-quota-monitor-tauri"
+version = "0.1.0-beta"
+description = "API 余额查询程序"
+authors = ["Zimu233L"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "api_quota_monitor_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["cookies", "rustls-tls"] }
+base64 = "0.22"
+# 方案 A 假单文件：release 版内嵌 runtime.zip（node.exe + playwright），
+# 首次「模拟浏览器登录」调用时解压到 %APPDATA%\com.apibalance.monitor\runtime\
+zip = { version = "2", default-features = false, features = ["deflate"] }
+# 退出时终止残留 node 子进程（TerminateProcess）
+# + 导出配置：把「文件」放进剪贴板 = CF_HDROP（DataExchange 开/关剪贴板、Memory 分配全局内存）
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_System_Threading", "Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_DataExchange", "Win32_System_Memory"] }
+

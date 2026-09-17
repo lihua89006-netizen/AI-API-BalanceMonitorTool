@@ -1,0 +1,271 @@
+/* 鲸鱼娘挂件样式（独立无边框透明窗口，仅 widget 窗口加载） */
+
+/* 透明窗口：html/body 必须透明，否则 WebView2 默认白底导致「白屏」观感 */
+html,
+body {
+  background: transparent !important;
+}
+
+.widget-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 字号基准固定 16px（画布内布局用）；视觉缩放全部由画布 transform 承担 */
+  font-size: 16px;
+}
+
+/* ═══ 缩放画布：固定 308×308 布局，整体 transform: scale(窗口边长/308) ═══
+   内容（图+字）静态排版于此，缩放只改 transform——GPU 合成器直接缩放已渲染画布，
+   不触发浏览器重排（vw 字号 / cover 图每帧重排滞后正是此前「内容抖」的根源）。
+   ⚠️ 这里**故意不写 will-change**（由 JS 按手势状态切换，见 WidgetApp.tsx setCanvasComposited）：
+   常驻合成层会把画布一直钉在旧栅格上，窗口尺寸变了也不再重新栅格化 —— 手势中开、停歇后关。
+   ⚠️ 这一开关对清晰度**未测出差异**（同尺寸 / 缩放往返逐项相同）；保留它的理由是
+   「空闲时不占合成层」本身合理且无代价，**不要声称它修好了什么**。 */
+.widget-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 308px;
+  height: 308px;
+  transform-origin: 0 0;
+  /* JS 按窗口尺寸设置 scale。⚠️ 这里不写 will-change —— 由 setCanvasComposited 按手势状态切换 */
+  transform: scale(1);
+}
+
+/* 背景图：cover 等比裁切铺满画布（对齐 Python 版 drawPixmap cover 行为） */
+.widget-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* 背景图加载失败兜底：深蓝渐变（对齐 Python 版渐变兜底） */
+.widget-bg-fallback {
+  background: linear-gradient(to bottom, #3d5af0, #24317a);
+}
+
+/* 文字层：绝对定位（相对画布），白描边深蓝文字（对齐 Python 版 _draw_text 的 halo 效果）
+   位置按 Python 版：站名 9.5% / 金额 20.5% / 状态 34.5%（画布高度的百分比）
+   水平居中于 45%（背景图气泡中心，Python 版 center_x = w*0.45），left = 45% - 84%/2 = 3% */
+.widget-text {
+  position: absolute;
+  left: 2%;
+  width: 84%;
+  text-align: center;
+  color: #1f3a5f;
+  font-family: 'Maple Mono NF CN', 'Maple Mono NF', monospace;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9),
+    1px 0 0 rgba(255, 255, 255, 0.9),
+    0 -1px 0 rgba(255, 255, 255, 0.9),
+    -1px 0 0 rgba(255, 255, 255, 0.9),
+    1px 1px 0 rgba(255, 255, 255, 0.9),
+    -1px 1px 0 rgba(255, 255, 255, 0.9),
+    1px -1px 0 rgba(255, 255, 255, 0.9),
+    -1px -1px 0 rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 第一行：站名 + 「余额」后缀（站名 20px、后缀 14px 的基准，随窗口缩放）。
+   ⚠️ 2026-09/15 用户要求「站名与余额数据这两行离今日已用行近一点」：
+   站名行与金额行**作为一组整体下移 2% 画布（≈6.2px）**，组内 6.6px 间距保持不变，
+   使「金额 ↔ 今日已用」间隙由 10.9px 收到 ≈4.7px。落点仍在白色气泡内
+   （实测 x 60~250、y 85~125 不透明占比 96~100%、亮度 244~247，见 probe/bg-sample.mjs）。 */
+.widget-name {
+  top: 19.5%; /* 原 17.5%（中心 y=53.9 → 60.1） */
+  transform: translateY(-50%);
+  font-size: 1.35em;
+  letter-spacing: -0.1em; /* 站名行收紧 */
+  font-weight: 700;
+  line-height: 1;
+}
+
+.widget-name .suffix {
+  margin-left: 0.15em; /* 站名与「余额」后缀的紧凑微距（对齐 Python 版 gap=2 的视觉） */
+  font-size: 0.7em;
+  color: #3d5a80;
+}
+
+/* 第二行：金额大字（36px 基准）—— 贴紧站名行（对齐 Python 版 name 底 ≈ balance 顶）
+   ⚠️ 与站名行同组下移 2%（见 .widget-name 注释）：29% → 31%，组内间距不变（6.6px） */
+.widget-balance {
+  top: 31%;
+  transform: translateY(-50%);
+  font-size: 2.25em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 第三行：状态（13px 基准；正常=深蓝，异常=深红，刷新中=中蓝）—— 随金额行同步上移 */
+.widget-status {
+  top: 40.5%;
+  transform: translateY(-50%);
+  font-size: 0.8125em;
+  letter-spacing: -0.12em; /* 状态行收紧 */
+  line-height: 1;
+}
+
+.widget-status.ok {
+  color: #1f3a5f;
+}
+
+.widget-status.err {
+  color: #b3261e;
+}
+
+.widget-status.busy {
+  color: #3d5a80;
+}
+
+/* ═══ 没有站名行上方的特殊内容行（目前=非 DeepSeek 站点）时：三行文字整体上移 ═══
+   2026-09/15 用户要求：「在鲸鱼娘窗口显示没有特殊显示内容的站点数据（如峰谷等）时，三行上移」。
+   理由：DeepSeek 站点在站名行上方还有「峰/谷 + 倒数」一行（占画布 y 21~40），非 DeepSeek 站点
+   没有它 → 顶部会空出一块、三行整体偏下。这里把三行**等量上移 10.2px 画布**（≈3.3%），
+   与「有峰谷行时的 峰谷行→站名 间隙 10.2px」保持一致的视觉节奏，行间相对关系完全不变
+   （站名→金额 6.6px、金额→状态 4.7px 均不受影响）。
+   标记由 WidgetApp.tsx 的 canvas `data-has-peak` 传入（1=有，0=无）。 */
+.widget-canvas[data-has-peak='0'] .widget-name {
+  top: 16.2%; /* 19.5% − 3.3% */
+}
+
+.widget-canvas[data-has-peak='0'] .widget-balance {
+  top: 27.7%; /* 31% − 3.3% */
+}
+
+.widget-canvas[data-has-peak='0'] .widget-status {
+  top: 37.2%; /* 40.5% − 3.3% */
+}
+
+/* 「今日已用」：与「数据正常」同色系（深蓝），语义同类——都是正常拿到数据后的附加信息 */
+.widget-status.used {
+  color: #1f3a5f;
+}
+
+/* ═══ DeepSeek 官方峰谷徽标 + 倒计时（对齐主界面 SiteCard 的 .ds-peak，仅 deepseek-official 站点显示）═══
+   位置：**站名行（.widget-name，文字框上缘 ≈43px）上方**。
+   （2026-09/15 曾按要求下移到「今日已用」下方，同日用户看过效果后要求**放回顶部**，故恢复原落点；
+     新增的倒计时与徽标同行显示，如「谷 剩余15时00分」。）
+
+   落点依据（背景图不透明图实测，probe/bg-sample.mjs 见 §4.10）：画布 y 18~41px 是**纯白气泡内区**
+   （该处背景亮度 255），站名文字框上缘 43px。徽标行中心取 9.9%（≈30.5px）→ 占 21~40px，
+   与站名留 ~3px 间距、水平中心与站名列完全对齐。⚠️ 落在浅色气泡内，深蓝文字无需白描边。
+   （注：下移方案那个落点 x≈110~200、y≈152~176 是近乎全透明的横带，点击会穿透、观感也偏"悬空"，
+     再往下 y≥184 就是角色白肩——已放弃，理由记录在此避免重复试错。） */
+.widget-peak.row {
+  position: absolute;
+  left: 2%;
+  width: 84%;
+  /* 中心画布 y≈29.6（原 9.9%=30.5 → 2026-09/15 用户要求「站名和谷中间加一点点距离」，
+     上移 0.3% ≈ 0.9px，与站名间隙 3.1px → 约 4px）；仍在白色气泡内（气泡内区 y 18~41px） */
+  top: 9.6%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+/* 徽标本体：尺寸用**固定画布 px**（不能用 vw/clamp——画布是被 transform 整体缩放的，
+   视口单位会随窗口独立变化，与画布缩放打架）。配色取自主界面浅色主题变体。 */
+.widget-peak-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 13px; /* 2026-09/11 由 10px 放大（用户要求「峰字变大一点」） */
+  font-weight: 700;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+/* 倒计时文字：字号对齐状态行（13px 基准）；落在白色气泡内，深蓝实色即清晰 */
+.widget-peak-text {
+  font-size: 0.8125em;
+  font-weight: 700;
+  color: #1f3a5f;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.widget-peak-valley {
+  background: rgba(34, 197, 94, 0.16);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.widget-peak-peak {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* 返回按钮：右上角固定，毛玻璃圆 + 细描边（对齐 Python 版 BACK_SIZE=28 定位，不随缩放） */
+.widget-back {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(31, 58, 95, 0.4);
+  background: rgba(255, 255, 255, 0.72);
+  color: #1f3a5f;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(31, 58, 95, 0.18);
+  z-index: 5;
+}
+
+.widget-back:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* ═══ 右上角菜单按钮（2026-09/16）═══
+   按钮与返回键同款、固定在返回键正下方（同一列，均在画布外、不随缩放）。
+   该处是背景图 y 152~176 的透明区，不压角色；按钮是实体元素，可正常接收点击。
+   ⚠️ 点开的「今日充值金额」面板自 2026-09/16 起是**独立窗口**（正上方、右对齐），
+   样式在 widget-menu.css —— 面板不再画在本窗口内，因此缩小挂件也不会裁到它。 */
+.widget-menu {
+  position: absolute;
+  top: 42px; /* 返回键 10 + 26 + 6 间距 */
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(31, 58, 95, 0.4);
+  background: rgba(255, 255, 255, 0.72);
+  color: #1f3a5f;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(31, 58, 95, 0.18);
+  z-index: 6;
+}
+
+.widget-menu:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* 面板展开时按钮保持"按下"观感（状态由 Rust 事件 widget:menu-state 同步） */
+.widget-menu[aria-expanded='true'] {
+  background: rgba(232, 240, 254, 0.95);
+  border-color: rgba(61, 90, 128, 0.7);
+}
+
