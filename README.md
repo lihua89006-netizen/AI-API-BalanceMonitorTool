@@ -10,10 +10,8 @@ ps.挂件可以常驻显示单个站点的余额与「今日已用」，充值�
 
 点展示键就会变成可爱鲸鱼娘，自动置顶、可变大小、点击刷新、空白处可穿透。
 
-<!-- 截图：把你的截图直接拖进这段注释下方，GitHub 会自动生成图片链接；
-     下面两张是仓库里已有的图，作为临时占位，替换掉即可 -->
-<img width="160" alt="图标" src="public/app-icon.png" />
-<img width="360" alt="挂件背景" src="public/background.png" />
+<img width="290" alt="主界面：卡片网格集中显示各站点余额" src="screenshots/01-main-window.png" />
+<img width="253" alt="鲸鱼娘挂件：置顶小窗显示余额、今日已用与峰谷倒计时" src="screenshots/02-widget.png" />
 
 点击下载👉[![最新版本](https://img.shields.io/github/v/release/lihua89006-netizen/AI-API-BalanceMonitorTool?label=最新版本&color=blue)](https://github.com/lihua89006-netizen/AI-API-BalanceMonitorTool/releases/latest)
 
@@ -25,6 +23,20 @@ ps.挂件可以常驻显示单个站点的余额与「今日已用」，充值�
 可调整大小、退出记忆位置与尺寸）+ 鲸鱼娘挂件（独立无边框置顶透明小窗，单击/60s 刷新、拖动、
 滚轮缩放、空白处点击穿透、大小位置记忆）；Android 端为响应式适配（无挂件）。
 视觉为 Apple 风玻璃拟态 + 壁纸背景（深浅色可切换）。
+
+## 界面预览
+
+| 添加站点（API Key 类站点） | 添加站点（中转站 · 自动识别） |
+|---|---|
+| <img src="screenshots/03-add-site-deepseek.png" width="300" alt="添加站点：DeepSeek 官方，只需填 API Key" /> | <img src="screenshots/04-add-site-relay.png" width="300" alt="添加站点：自动识别中转站，填登录账号与密码" /> |
+
+**方案筛选**：按计费方式过滤列表（量额余额 / 包时 / 按次 / Token Plan 套餐），未勾选的在列表中隐藏
+
+<img src="screenshots/05-plan-filter.png" width="330" alt="方案筛选弹窗" />
+
+**多方案卡片**：一个站点勾了多种计费方式时，卡片可展开并切换「当前展示」的那一档
+
+<img src="screenshots/06-card-plans.png" width="380" alt="卡片展开显示多计费方案" />
 
 ## 运行（源码方式）
 
