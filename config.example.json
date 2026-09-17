@@ -1,0 +1,43 @@
+{
+  "_comment": "API余额通 配置模板：复制为 config.json 后替换占位值。真正的 config.json 在应用配置目录（Windows: %APPDATA%\\com.apibalance.monitor\\），请勿把带真实 Key 的配置提交到 Git。",
+  "theme": "light",
+  "autoRefreshMinutes": 0,
+  "wallpaper": "aurora",
+  "providers": [
+    {
+      "uid": "p-example-deepseek",
+      "providerId": "deepseek_official",
+      "displayName": "示例：DeepSeek 官方",
+      "enabled": true,
+      "autoRefreshMinutes": 3,
+      "config": {
+        "api_key": "sk-你的DeepSeek密钥"
+      }
+    },
+    {
+      "uid": "p-example-relay",
+      "providerId": "generic_login_html",
+      "displayName": "示例：中转站（自动识别）",
+      "enabled": true,
+      "autoRefreshMinutes": 5,
+      "config": {
+        "login_url": "https://example.com/login",
+        "email": "你的账号",
+        "password": "你的密码"
+      }
+    },
+    {
+      "uid": "p-example-aliyun",
+      "providerId": "aliyun",
+      "displayName": "示例：阿里云百炼",
+      "enabled": true,
+      "autoRefreshMinutes": 10,
+      "config": {
+        "access_key_id": "LTAI你的AccessKeyId",
+        "access_key_secret": "你的AccessKeySecret"
+      }
+    }
+  ],
+  "autoOpenWidgetMode": "off",
+  "autoOpenWidget": false
+}

@@ -1,0 +1,85 @@
+name: Build Windows EXE
+
+# ⚠️ 本工作流由 AI 按 打包.ps1 的流程编写，**尚未首次运行验证**；
+#    第一次打 tag（或在 Actions 里手动 Run workflow）时请留意日志。
+#    安卓整包构建需要管理员权限（Windows 符号链接），故本工作流只出桌面 exe。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 测试跑在本地假服务器上（不依赖真实账号），因此这里直接当发布门用
+      - name: Typecheck & frontend tests
+        run: |
+          pnpm exec tsc --noEmit
+          pnpm test
+
+      - name: Rust tests
+        run: cargo test --lib --manifest-path src-tauri/Cargo.toml
+
+      # 与 打包.ps1 一致：把 minmax/ 打成 runtime.zip 供 exe 内嵌（cargo build --release 缺它会失败）
+      # checkout 里没有 node.exe 与 node_modules（.gitignore 排除），故这里补齐；并剔除 web_state/ 登录态
+      - name: Prepare embedded runtime
+        shell: pwsh
+        run: |
+          $nodeVersion = "v24.19.0"
+          Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip" -OutFile node.zip
+          Expand-Archive node.zip -DestinationPath nodejs
+          Copy-Item "nodejs/node-$nodeVersion-win-x64/node.exe" minmax/node.exe -Force
+          Push-Location minmax
+          npm ci --omit=dev
+          Pop-Location
+
+          $tmp = Join-Path $env:TEMP 'aqm_runtime_src'
+          if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
+          New-Item -ItemType Directory -Path $tmp | Out-Null
+          Copy-Item "minmax/*" $tmp -Recurse -Force
+          Remove-Item (Join-Path $tmp 'web_state') -Recurse -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$tmp/*" -DestinationPath "src-tauri/runtime.zip" -Force
+
+      - name: Build EXE
+        run: pnpm tauri build --no-bundle
+
+      - name: Rename EXE with version
+        shell: pwsh
+        run: |
+          Rename-Item -Path "src-tauri/target/release/api-quota-monitor-tauri.exe" `
+            -NewName ("ApiQuotaMonitor-" + $env:GITHUB_REF_NAME + ".exe")
+
+      - name: Upload EXE to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src-tauri/target/release/ApiQuotaMonitor-*.exe
+          generate_release_notes: true

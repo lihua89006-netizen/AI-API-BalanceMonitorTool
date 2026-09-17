@@ -1,4 +1,21 @@
-# Logs
+# —— 编辑器 / 系统 ——
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# —— 依赖与前端构建产物 ——
+node_modules
+dist
+dist-ssr
+*.local
+
+# —— 日志 ——
 logs
 *.log
 npm-debug.log*
@@ -7,25 +24,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
 # ============================================================
-# Tauri / Rust 构建产物（2026-09/15 补：建库前必须先补，否则 git add . 会
-# 把 target 约 47GB、gen/android build 约 10.8GB 一次性入仓）
+# Tauri / Rust 构建产物
+# ⚠️ 建库前必须先补这些规则，否则 `git add .` 会把
+#    src-tauri/target（约 47GB）与 gen/android build（约 10.8GB）一次性入仓
 # ============================================================
 /src-tauri/target/
 /src-tauri/gen/schemas/
@@ -35,20 +37,35 @@ dist-ssr
 /src-tauri/gen/android/.idea/
 /src-tauri/gen/android/local.properties
 /src-tauri/gen/android/buildSrc/build/
-# 打包前由 打包.ps1 自动生成（minmax 全量压缩，37MB），随构建再生，不入仓
-/src-tauri/runtime.zip
 
 # ============================================================
-# ⚠️ 凭据 / 隐私：以下内容绝不能入仓（一旦推送即泄露真实账号会话与运行时分发物）
+# ⚠️ 用户配置与敏感信息（含真实 API Key / AccessKey Secret，切勿提交）
 # ============================================================
-# 模拟浏览器登录的登录态（真实账号会话 cookie，Playwright storageState）
+# 应用运行时的配置在 %APPDATA%\com.apibalance.monitor[.dev]\config.json，
+# 正常不会出现在项目目录；这里兜底拦住手工复制进来的副本
+/config.json
+/config.json.bak
+/config.json.tmp
+# 「模拟浏览器登录」的登录态（真实账号会话 cookie，Playwright storageState）
 minmax/web_state/
-# 随包的 Node 运行时（88MB 二进制，随 minmax/ 目录分发，不入仓）
+
+# ============================================================
+# 归档 / 分发包
+# ⚠️ 归档入仓前**必须**先列内容确认没有登录态（`7z l <包>`）——
+#    本项目踩过一次：旧的手工分发包 minmax.7z 里带着 web_state/ 登录态，
+#    推送到托管平台前才发现，只能重建仓库清历史
+# ============================================================
+/src-tauri/runtime.zip
+/minmax*.7z
+/minmax*.zip
+# 随包的 Node 运行时（约 88MB 二进制，随 minmax/ 目录分发，不入仓）
 minmax/node.exe
 
-# 开发期量测采样与捕获截图（probe/ 的代码与说明入仓，量测产物不入仓）
+# ============================================================
+# 开发期量测产物（probe/ 的代码与说明入仓，采样与截图不入仓）
 # ⚠️ 必须写成 `dir/*` + 否定例外，不能只写 `dir/`：目录整体被排除后 git 不再进入该目录，
-#    里面的 `!` 例外规则就不会生效（本条踩过一次：`/probe/traces/` + `!/probe/traces/README.md` 无效）。
+#    里面的 `!` 例外规则就不会生效（本条踩过一次：`/probe/traces/` + `!/probe/traces/README.md` 无效）
+# ============================================================
 /probe/traces/*
 !/probe/traces/README.md
 /probe/shots/
