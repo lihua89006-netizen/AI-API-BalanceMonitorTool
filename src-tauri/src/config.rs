@@ -51,6 +51,10 @@ pub struct AppConfig {
     pub auto_open_widget: bool,
     /// 上次打开的挂件站点 uid（「上次站点」模式启动时用它还原上次那个挂件；None = 还没开过）
     pub last_widget_uid: Option<String>,
+    /// 安卓端桌宠（系统悬浮窗）边长（dp）；None = 默认 150dp（2026-09/19）
+    pub mobile_widget_size: Option<i32>,
+    /// 安卓端桌宠左上角位置（屏幕像素，绝对坐标）；None = 首次打开落在右侧偏下
+    pub mobile_widget_pos: Option<(i32, i32)>,
 }
 
 /// 「今日已用」的当日**余额观测**记录（按站点 uid 存一条）。

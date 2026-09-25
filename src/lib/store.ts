@@ -40,6 +40,10 @@ export interface AppConfig {
   autoOpenWidget?: boolean
   /** 上次打开的挂件站点 uid：「上次站点」模式启动时用它还原上次那个挂件；null = 还没开过 */
   lastWidgetUid?: string | null
+  /** 安卓端桌宠（系统悬浮窗）边长（dp）；由 Rust 侧维护，前端保存配置时原样保留 */
+  mobileWidgetSize?: number | null
+  /** 安卓端桌宠左上角位置（屏幕像素绝对坐标）；由 Rust 侧维护 */
+  mobileWidgetPos?: [number, number] | null
 }
 
 export async function getConfig(): Promise<AppConfig> {

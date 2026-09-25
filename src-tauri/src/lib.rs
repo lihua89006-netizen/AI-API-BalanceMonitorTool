@@ -6,6 +6,7 @@ mod network;
 mod web_login;
 mod widget;
 mod widget_menu;
+mod widget_overlay;
 
 use config::ConfigState;
 use network::NetState;
@@ -19,7 +20,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(web_login::plugin())
-        .plugin(export::plugin());
+        .plugin(export::plugin())
+        // 鲸鱼娘桌宠（仅安卓有实体实现；其它平台该插件是 no-op）
+        .plugin(widget_overlay::plugin());
 
     // 单实例：桌面端防双开（第二个实例启动时聚焦已有窗口）；移动端无此概念，跳过
     #[cfg(desktop)]
@@ -202,6 +205,13 @@ pub fn run() {
             widget_menu::widget_menu_toggle,
             widget_menu::widget_menu_close,
             widget_menu::widget_menu_resize,
+            widget_overlay::overlay_status,
+            widget_overlay::overlay_request_permission,
+            widget_overlay::overlay_open,
+            widget_overlay::overlay_update,
+            widget_overlay::overlay_close,
+            widget_overlay::overlay_geometry,
+            widget_overlay::overlay_save_geometry,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

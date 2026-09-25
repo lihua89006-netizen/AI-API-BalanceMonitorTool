@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 鲸鱼娘桌宠（系统悬浮窗，方案 1）：把鲸鱼娘盖在别的 App 之上。
+         ⚠️ 这是**特殊权限**：不能像普通运行时权限那样弹窗申请，只能跳系统设置页让用户手动打开
+            （见 WidgetOverlayPlugin.requestPermission）。用户已明确「不上架、自用/侧载分发」，
+            故不受 Google Play 对 SYSTEM_ALERT_WINDOW 的"核心功能"论证限制。 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />

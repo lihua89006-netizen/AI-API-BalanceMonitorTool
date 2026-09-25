@@ -28,6 +28,7 @@ import { autoWidgetMode, pickAutoOpenUid } from './lib/autoWidget'
 import { mergeProviders } from './lib/sync'
 import { fetchEntry } from './lib/worker'
 import { recordUsageBaseline } from './lib/usage'
+import { buildPetPayload, nextPetUid, petPeakTickMs, pickPetUid } from './lib/petOverlay'
 import { applyTheme, watchSystemTheme, type ThemeChoice } from './lib/theme'
 import { fmtCount, fmtMoney, fmtDuration } from './lib/fmt'
 import { PLANS, entryPlans } from './lib/plans'
@@ -74,6 +75,13 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 2400)
   }
   const [overview, setOverview] = useState({ ok: 0, fail: 0 })
+  // —— 安卓端「鲸鱼娘桌宠」（系统悬浮窗）：状态一律**向 Rust 查**，不做本地 toggle 缓存 ——
+  // 桌宠可以被它自己的原生菜单关掉（或它的缩放/拖动改变几何），本地缓存一定会和真实状态走散；
+  // 每次点击都查一次是最省事且不会错的做法（一次 IPC，代价可忽略）。
+  const [petSupported, setPetSupported] = useState(false)
+  const [petPermitted, setPetPermitted] = useState(false)
+  const [petShowing, setPetShowing] = useState(false)
+  const [petBusy, setPetBusy] = useState(false)
   // 刷新序号：丢弃陈旧请求的结果（编辑保存 vs 旧配置自动刷新的竞态）
   const refreshSeq = useRef(0) // 全部刷新的批次序号
   // 单站刷新的序号（按 uid 隔离，避免不同站点并发刷新互相丢弃结果）
@@ -202,6 +210,47 @@ export default function App() {
     }
   }, [])
 
+  // —— 桌宠数据推送（P1）：主界面每轮刷新后，把「当前展示的那个站点」的四行文字推给悬浮层 ——
+  // 设计要点：**不新增任何数据通路** —— 用的仍是主界面已有的 results（resultsRef）+ 当日账本
+  // （config.usageBaselines），只是把它们折算成文字推过去（折算规则全在 lib/petOverlay.ts，
+  // 与桌面挂件同一批函数）。安卓原生层只负责画字符串，因此两端数字不可能不一致。
+  const petShowingRef = useRef(false)
+  const petUidRef = useRef<string | null>(null)
+
+  /**
+   * 组装并推送桌宠文字。
+   * `freshBaseline=true` 时先回读一次配置：刚用 recordUsageBaseline 写过观测账本，
+   * 「今日已用」要用**写完之后**的值（否则这一轮会推出上一轮的数字）。
+   */
+  const pushPet = useCallback(async (uid?: string, freshBaseline = false) => {
+    if (!isAndroidPlatform() || !petShowingRef.current) return
+    const targetUid = uid ?? petUidRef.current ?? pickPetUid(cfgRef.current)
+    if (!targetUid) return
+    const entry = cfgRef.current?.providers.find((p) => p.uid === targetUid)
+    if (!entry) return
+    let baseline = cfgRef.current?.usageBaselines?.[targetUid]
+    if (freshBaseline) {
+      try {
+        baseline = (await getConfig()).usageBaselines?.[targetUid]
+      } catch (e) {
+        console.error('桌宠回读当日记录失败：', e)
+      }
+    }
+    try {
+      const r = await invoke<{ ok: boolean }>('overlay_update', {
+        payload: buildPetPayload(entry, resultsRef.current[targetUid], baseline),
+      })
+      // 桌宠可能已被它自己那份原生菜单关掉（那条路径不经过前端）→ 顺带自愈前端状态，
+      // 免得按钮一直显示「关闭桌宠」而实际什么都没有
+      if (!r.ok) {
+        petShowingRef.current = false
+        setPetShowing(false)
+      }
+    } catch (e) {
+      console.error('推送桌宠数据失败：', e)
+    }
+  }, [])
+
   // 结果落库：更新界面 + 同步到 Rust 侧缓存（挂件打开时直接复用，不再重复网络请求）
   // resultsRef：同步镜像，供失败保留逻辑读取「上次成功结果」
   const resultsRef = useRef<Record<string, QuotaInfo>>({})
@@ -211,8 +260,11 @@ export default function App() {
     void invoke('widget_set_result', { uid, info }).catch(() => {})
     // 「今日已用」当日基准：所有成功结果都经这里落库，故在此统一上报（Rust 侧当天只记第一次，
     // 之后调用是无副作用的 no-op）。失败/无值/配额百分比站点会被 recordUsageBaseline 自行跳过。
-    void recordUsageBaseline(uid, info)
-  }, [])
+    void recordUsageBaseline(uid, info).then(() => {
+      // 账本写完再推桌宠：正显示这个站点时把新数字送过去（每轮刷新都会走到）
+      if (uid === petUidRef.current) void pushPet(uid, true)
+    })
+  }, [pushPet])
 
   // 清除缓存（站点配置变更/删除时调用，避免挂件显示过期数据）
   const clearResultCache = useCallback((uid: string) => {
@@ -347,7 +399,26 @@ export default function App() {
         return
       }
       if (isAndroidPlatform()) {
-        mark('skip:android') // 挂件窗只有桌面端有
+        // 安卓端的「桌宠模式」= 系统悬浮窗（§4.11）。设置项文案本来就是「启动时自动打开桌宠模式」，
+        // 此前这里直接 skip（安卓端没实现挂件），现在接到桌宠上：沿用**同一套**站点选择纯函数
+        // （autoWidgetMode / pickAutoOpenUid），模式为「关闭自动」时不打开。
+        const mode = autoWidgetMode(c)
+        if (mode === 'off') {
+          mark('skip:android-off')
+          return
+        }
+        const uid = pickAutoOpenUid(c)
+        if (!uid) {
+          mark('skip:no-provider')
+          return
+        }
+        mark(`pet-open:${mode}:uid=${uid}`)
+        void openPet(uid, { silent: true })
+          .then((ok) => mark(ok ? `pet-ok:uid=${uid}` : 'pet-skip:no-permission'))
+          .catch((e) => {
+            mark(`pet-error:${String(e)}`)
+            console.error('启动自动打开桌宠失败：', e)
+          })
         return
       }
       // 站点选择与模式判定都在纯函数里（lib/autoWidget.ts，有单测）：
@@ -388,22 +459,28 @@ export default function App() {
   }, [])
 
   // —— 自动刷新轮询（30s tick 常驻，读取 ref 中的最近刷新时间）——
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (!cfg) return
-      const now = Date.now()
-      const lr = lastRefreshRef.current
-      for (const e of cfg.providers) {
-        if (!e.enabled) continue
-        const interval = e.autoRefreshMinutes > 0 ? e.autoRefreshMinutes : cfg.autoRefreshMinutes
-        if (interval <= 0) continue
-        if (now - (lr[e.uid] ?? 0) >= interval * 60_000) {
-          refreshOne(e)
-        }
+  // 抽成回调是因为**后台也要用它**：主应用切后台后 Chromium 会停掉页面的 JS 定时器，
+  // 桌宠那边用原生定时器每分钟把 JS「戳一下」（见 PetOverlay.pokeRunnable），
+  // 戳的就是这个 tick —— 判断"哪些站点该刷了"的口径仍只有这一份。
+  const tickDueRefreshes = useCallback(() => {
+    const c = cfgRef.current
+    if (!c) return
+    const now = Date.now()
+    const lr = lastRefreshRef.current
+    for (const e of c.providers) {
+      if (!e.enabled) continue
+      const interval = e.autoRefreshMinutes > 0 ? e.autoRefreshMinutes : c.autoRefreshMinutes
+      if (interval <= 0) continue
+      if (now - (lr[e.uid] ?? 0) >= interval * 60_000) {
+        refreshOne(e)
       }
-    }, AUTO_TICK_MS)
+    }
+  }, [refreshOne])
+
+  useEffect(() => {
+    const timer = setInterval(() => tickDueRefreshes(), AUTO_TICK_MS)
     return () => clearInterval(timer)
-  }, [cfg, refreshOne])
+  }, [tickDueRefreshes])
 
   // —— 概览统计 ——
   useEffect(() => {
@@ -487,6 +564,203 @@ export default function App() {
       }
     } catch (e) {
       console.error('打开挂件失败：', e)
+    }
+  }
+
+  // ══ 鲸鱼娘桌宠（安卓端**系统悬浮窗**，2026-09/19，方案 1）══
+  // 桌面端的「🐳 展示」= 独立置顶小窗（open_widget，复用 index.html）；
+  // 安卓端只有一个 WebView 窗口（没有第二个窗口可用），对应能力是**系统悬浮窗**：
+  // 用 TYPE_APPLICATION_OVERLAY 把鲸鱼娘盖在所有 App 之上，入口因此是全局的、不是卡片级的。
+  // （`petUidRef` / `petShowingRef` / `pushPet` 在文件上方「桌宠数据推送」一段里声明——
+  //   那里要能被 commitResult 引用，所以位置比这一节更早。）
+
+  /** 查桌宠真实状态（平台支持 / 特殊授权 / 是否在显示）——一律问 Rust，不做本地缓存 */
+  const refreshPetState = useCallback(async () => {
+    if (!isAndroidPlatform()) return
+    try {
+      const st = await invoke<{ supported: boolean; permitted: boolean; showing: boolean }>('overlay_status')
+      setPetSupported(st.supported)
+      setPetPermitted(st.permitted)
+      setPetShowing(st.showing)
+      // 显示着但前端不知道是哪个站点（例如 WebView 重载后）：按默认站点补齐，
+      // 否则刷新推送会因为 uid 为空而静默停掉
+      if (st.showing && !petUidRef.current) petUidRef.current = pickPetUid(cfgRef.current)
+    } catch (e) {
+      console.error('查询桌宠状态失败：', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshPetState()
+  }, [refreshPetState])
+
+  // petShowing 的同步镜像：pushPet 要在**不重建回调**的前提下读到最新值（IPC 里被调用得很频繁）
+  useEffect(() => {
+    petShowingRef.current = petShowing
+  }, [petShowing])
+
+  // 峰谷倒计时刷新：按与主卡片/挂件**同一阈值**推（< 2 小时每秒，否则 10 秒）。
+  //
+  // ⚠️ 用**自调度 setTimeout** 而不是固定 setInterval（2026-09/19 实测踩到）：阈值是**随时间变化**的，
+  //    固定间隔会在跨过 2 小时边界后继续按旧节奏推 —— 那时文案已经带秒，却是 10 秒才更新一次，
+  //    秒数"跳着走"（实测：把设备时钟调到距切换 2 分钟，两张隔 3 秒的截图**逐字节相同**）。
+  //    自调度 = 每推完一次都重新算 petPeakTickMs，换挡自然发生。
+  // ⚠️ 依赖里**不放 cfg**（用 cfgRef 读）：cfg 会随每次落盘换引用，那样定时器会被反复重建；
+  //    非 DeepSeek 站点没有会变的行 → 用一个 30 秒的空转间隔活着，这样菜单切到 DeepSeek 站时
+  //    下一次 tick 就能自己换挡（否则切站后倒计时永远不动）。
+  useEffect(() => {
+    if (!petShowing) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let disposed = false
+    const tick = () => {
+      if (disposed) return
+      void pushPet().finally(() => {
+        if (disposed) return
+        const entry = cfgRef.current?.providers.find((p) => p.uid === (petUidRef.current ?? ''))
+        const ms = entry ? petPeakTickMs(entry.providerId) : 0
+        timer = setTimeout(tick, ms > 0 ? ms : 30_000)
+      })
+    }
+    timer = setTimeout(tick, 1000)
+    return () => {
+      disposed = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [petShowing, pushPet])
+
+  /**
+   * 桌宠**原生菜单**的动作（Kotlin 通过 `evaluateJavascript` 调 `window.__aqmPetAction`）。
+   * 为什么走这条路：站名/余额/当日账本/站点列表全在前端，原生层不认识它们 ——
+   * 菜单只负责"说出用户想干什么"，口径一律回前端执行（与「口径唯一」同一原则）。
+   */  const handlePetAction = useCallback(
+    async (action: string) => {
+      const currentUid = petUidRef.current ?? pickPetUid(cfgRef.current)
+      if (!currentUid) return
+      if (action === 'nextSite') {
+        const next = nextPetUid(cfgRef.current, currentUid)
+        if (!next) return
+        petUidRef.current = next
+        const nextEntry = cfgRef.current?.providers.find((p) => p.uid === next) ?? null
+        // 先把这一站的旧数字/占位推过去（立即有反馈），再触发一次刷新补最新值
+        await pushPet(next)
+        if (nextEntry) void refreshOne(nextEntry)
+        const c = cfgRef.current
+        if (c) {
+          const updated = { ...c, lastWidgetUid: next }
+          setCfg(updated)
+          saveConfig(updated).catch((e) => console.error('记录桌宠站点失败：', e))
+        }
+        return
+      }
+      if (action === 'refresh') {
+        const entry = cfgRef.current?.providers.find((p) => p.uid === currentUid) ?? null
+        if (entry) void refreshOne(entry)
+        return
+      }
+      // 桌宠显示期间由**原生侧**每分钟戳一次（见 PetOverlay.pokeRunnable）：
+      // 主应用切后台后 JS 定时器会被 Chromium 停掉，但被戳醒的脚本照样能跑 —— 于是
+      // "哪些站点该刷了"仍由前端这套判断决定，后台数据不会一直停着。
+      if (action === 'tick') {
+        tickDueRefreshes()
+      }
+    },
+    [pushPet, refreshOne, tickDueRefreshes],
+  )
+
+  useEffect(() => {
+    if (!isAndroidPlatform()) return
+    const w = window as unknown as { __aqmPetAction?: (action: string) => void }
+    w.__aqmPetAction = (action: string) => void handlePetAction(action)
+    return () => {
+      delete w.__aqmPetAction
+    }
+  }, [handlePetAction])
+
+  // 位置/大小记忆：拖动与缩放是在**原生把手/菜单**里改的（前端不知情），故桌宠显示期间定期
+  // 把几何落盘（关闭时 Rust 侧也会存一次兜底）。15 秒一次 = 用户拖完最多 15 秒内落盘，
+  // 比"只在关闭时保存"稳（应用被系统杀掉也不丢）。
+  useEffect(() => {
+    if (!petShowing) return
+    const save = () => void invoke('overlay_save_geometry').catch(() => {})
+    save()
+    const timer = setInterval(save, 15_000)
+    return () => clearInterval(timer)
+  }, [petShowing])
+
+  /**
+   * 打开桌宠并切到指定站点（供「🐳 桌宠」按钮与「启动时自动打开桌宠模式」共用）。
+   * 返回 false = 没打开（无授权 / 平台不支持 / 被静默跳过）。`silent` = 启动自动打开时不要弹 toast。
+   */
+  const openPet = useCallback(
+    async (uid: string, opts: { silent?: boolean } = {}): Promise<boolean> => {
+      const c = cfgRef.current
+      const entry = c?.providers.find((p) => p.uid === uid) ?? null
+      if (!entry) return false
+      const st = await invoke<{ supported: boolean; permitted: boolean; showing: boolean }>('overlay_status')
+      setPetSupported(st.supported)
+      setPetPermitted(st.permitted)
+      if (!st.supported) {
+        if (!opts.silent) showToast('err', '当前平台没有桌宠悬浮窗')
+        return false
+      }
+      // 悬浮窗是**特殊授权**（不能弹窗申请）→ 跳系统设置页；该页永远回"取消"，
+      // 所以结果只能靠回读权限状态（Rust/Kotlin 已处理），这里只看 granted。
+      if (!st.permitted) {
+        if (opts.silent) return false // 启动自动打开时不打断用户（按钮路径才引导授权）
+        showToast('ok', '请在系统页面打开「允许显示在其他应用上层」')
+        const p = await invoke<{ granted: boolean; message: string }>('overlay_request_permission')
+        setPetPermitted(p.granted)
+        if (!p.granted) {
+          showToast('err', p.message)
+          return false
+        }
+      }
+      petUidRef.current = entry.uid
+      await invoke('overlay_open', {
+        payload: buildPetPayload(entry, resultsRef.current[entry.uid], c?.usageBaselines?.[entry.uid]),
+      })
+      setPetShowing(true)
+      // 记住这次展示的站点：与桌面挂件共用 lastWidgetUid，下次打开还是它（写失败不影响打开）
+      if (c) {
+        const next = { ...c, lastWidgetUid: entry.uid }
+        setCfg(next)
+        saveConfig(next).catch((e) => console.error('记录桌宠站点失败：', e))
+      }
+      if (!opts.silent) showToast('ok', '桌宠已打开：拖把手可移动，点/长按把手出菜单')
+      return true
+    },
+    [],
+  )
+
+  /** 打开／关闭桌宠（按钮只做一件事：切到相反状态；真实状态每次都现查） */
+  const handlePetToggle = async () => {
+    if (petBusy || !cfg) return
+    setPetBusy(true)
+    try {
+      const st = await invoke<{ supported: boolean; permitted: boolean; showing: boolean }>('overlay_status')
+      setPetSupported(st.supported)
+      setPetPermitted(st.permitted)
+      if (!st.supported) {
+        showToast('err', '当前平台没有桌宠悬浮窗')
+        return
+      }
+      if (st.showing) {
+        await invoke('overlay_close')
+        setPetShowing(false)
+        showToast('ok', '桌宠已关闭')
+        return
+      }
+      const uid = pickPetUid(cfg)
+      if (!uid) {
+        showToast('err', '先添加一个站点，桌宠才有余额可显示')
+        return
+      }
+      await openPet(uid)
+    } catch (e) {
+      console.error('切换桌宠失败：', e)
+      showToast('err', String(e))
+    } finally {
+      setPetBusy(false)
     }
   }
 
@@ -747,6 +1021,32 @@ export default function App() {
           >
             <Plus size={14} strokeWidth={2.2} /> 添加站点
           </button>
+          {/* 桌宠（仅安卓端；桌面端的能力是卡片上的「🐳 展示」独立小窗，见 handleShow） */}
+          {isAndroid && (
+            <button
+              className="btn export-btn"
+              onClick={handlePetToggle}
+              disabled={petBusy}
+              title={
+                !petSupported
+                  ? '当前平台没有桌宠悬浮窗'
+                  : petShowing
+                    ? '关闭鲸鱼娘桌宠'
+                    : petPermitted
+                      ? '把鲸鱼娘显示在所有应用之上'
+                      : '需要先授予「显示在其他应用上层」权限'
+              }
+            >
+              {petBusy ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
+                  🐳
+                </span>
+              )}{' '}
+              {petShowing ? '关闭桌宠' : '桌宠'}
+            </button>
+          )}
         </div>
 
         {/* —— 工具栏：搜索框一行（左侧放大镜）—— */}
